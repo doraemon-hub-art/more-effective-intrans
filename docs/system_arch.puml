@@ -1,0 +1,78 @@
+@startuml
+!theme plain
+skinparam monochrome false
+skinparam shadowing false
+skinparam defaultFontName "sans-serif"
+skinparam defaultFontSize 12
+skinparam packagePadding 24
+skinparam componentPadding 16
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 110
+
+' ======================== 外部实体 ========================
+actor "开发者 (User)" as User
+node "Linux 宿主环境\n(Kitty / X11 / Wayland)" as HostOS
+cloud "远程翻译服务\n(DeepSeek / Cloud API)" as RemoteAPI
+
+' ======================== 系统架构分层 ========================
+package "软件系统架构" {
+
+    ' Layer 1
+    package "第 1 层：接入与展现层 (Presentation & Ingress Layer)" as L1 {
+        [悬浮交互窗口\n(Slint UI View)] as C_UI
+        [系统托盘驻留\n(System Tray)] as C_Tray
+        [全局热键监听\n(Global Hotkey Ingress)] as C_Hotkey
+    }
+
+    ' Layer 2
+    package "第 2 层：核心编排与控制层 (Core Orchestration Layer)" as L2 {
+        [业务流程协调器\n(Workflow Coordinator)] as C_Coord
+        [界面生命周期与状态机\n(UI State Controller)] as C_State
+        [配置管理中心\n(Config Store)] as C_Config
+    }
+
+    ' Layer 3
+    package "第 3 层：翻译处理管线层 (Translation Pipeline Layer)" as L3 {
+        [拼音推断与提示词引擎\n(Pinyin Query Engine)] as C_Engine
+        [翻译服务适配器\n(Provider Adapter Interface)] as C_Adapter
+        [本地词汇缓存\n(Local Result Cache)] as C_Cache
+    }
+
+    ' Layer 4
+    package "第 4 层：操作系统抽象与驱动层 (OS Abstraction & Driver Layer)" as L4 {
+        [窗口焦点控制器\n(Focus Manager)] as C_Focus
+        [文本上屏引擎\n(Text Injector / Kitty IPC)] as C_Injector
+        [异步网络传输驱动\n(HTTP Transport Driver)] as C_Net
+    }
+}
+
+' ======================== 数据与控制流 ========================
+
+' 外部输入
+User --> C_Hotkey : 1. 物理触发 (;)
+User <--> C_UI : 2. 拼音输入 / 数字键选择 (1, 2, 3)
+C_Tray ..> C_Config : 打开/重载配置
+
+' Layer 1 -> Layer 2 (事件驱动)
+C_Hotkey -down-> C_Coord : 唤起事件通知
+C_UI <-> C_State : 双向数据绑定 / 视图状态流转
+C_Coord <-> C_State : 驱动状态迁移 (Idle -> Fetching -> Showing)
+C_Config .down.> C_Coord : 注入全局配置规则
+
+' Layer 2 -> Layer 3 (业务下发)
+C_Coord -down-> C_Engine : 提交拼音文本与选项规格
+C_Engine -down-> C_Adapter : 构建结构化请求
+C_Adapter <-> C_Cache : 检查 / 写入缓存
+C_Adapter -down-> C_Net : 派发异步网络任务
+
+' Layer 3 -> Layer 4 (基础设施交互)
+C_Net <-> RemoteAPI : HTTPS 报文交换 (Tokio Worker)
+C_Coord -down-> C_Focus : 调度焦点归还
+C_Coord -down-> C_Injector : 提交选中的目标文本 (Payload)
+
+' Layer 4 -> 外部输出
+C_Focus -down-> HostOS : 激活上一个活动窗口
+C_Injector -down-> HostOS : 字符注入 (Kitty Socket / 虚拟按键)
+
+@enduml
