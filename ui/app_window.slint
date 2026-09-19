@@ -1,8 +1,144 @@
 //**
 // * @file app_window.slint
 // * @author doraemon-hub-art (1660219734@qq.com)
-// * @brief Main floating window: input field, candidate list and their interaction bindings
+// * @brief Main floating window: input field, candidate row and their interaction
 // * @date 2026-09-19
 // *
 // * @copyright Copyright (c) 2026
 // */
+
+import { Styles } from "styles.slint";
+
+// A frameless, always-on-top panel. It grows downwards by the candidate row while there is
+// something to choose, so the input field itself never moves or changes size.
+export component AppWindow inherits Window {
+    title: "more-effective-intrans";
+    width: 480px;
+    // Fixed input row, plus the candidate row only while candidates exist.
+    height: root.candidates.length > 0
+        ? Styles.input-row-height + Styles.candidate-row-height
+        : Styles.input-row-height;
+
+    // Frameless floating panel instead of a normal decorated window
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+
+    // What is currently in the input field.
+    in-out property <string> input-text;
+
+    // Candidates for the last submitted input; empty means "no row, nothing to pick".
+    in-out property <[string]> candidates;
+
+    // Fired on Enter, carrying whatever was typed.
+    callback submitted(string);
+
+    // Fired when the user picks a candidate, carrying the chosen word.
+    callback picked(string);
+
+    Rectangle {
+        background: Styles.background;
+        border-radius: Styles.radius;
+
+        input := TextInput {
+            // Two-way binding: typing updates `input-text`, and assigning to either side
+            // updates the other — that is how the field gets cleared below.
+            text <=> root.input-text;
+            color: Styles.foreground;
+            font-size: Styles.font-size;
+            single-line: true;
+            vertical-alignment: center;
+
+            // Laid out against the fixed input row height, not against the panel height,
+            // so showing the candidate row cannot stretch the field.
+            x: Styles.padding;
+            y: Styles.padding;
+            width: parent.width - 2 * Styles.padding;
+            height: Styles.input-row-height - 2 * Styles.padding;
+
+            // Take the keyboard as soon as the panel shows up.
+            init => { self.focus(); }
+
+            // While the candidate row is up, the digits pick a candidate instead of being
+            // typed into the field.
+            key-pressed(event) => {
+                if (event.text == "1" && root.candidates.length > 0) {
+                    root.picked(root.candidates[0]);
+                    accept
+                } else if (event.text == "2" && root.candidates.length > 1) {
+                    root.picked(root.candidates[1]);
+                    accept
+                } else if (event.text == "3" && root.candidates.length > 2) {
+                    root.picked(root.candidates[2]);
+                    accept
+                } else {
+                    reject
+                }
+            }
+
+            accepted => {
+                root.submitted(self.text);
+                // Clear the field for the next round; the two-way binding keeps
+                // `input-text` in sync.
+                self.text = "";
+            }
+        }
+
+        // Separation line between the input row and the candidate row.
+        if (root.candidates.length > 0) : Rectangle {
+            x: Styles.padding;
+            y: Styles.input-row-height;
+            width: parent.width - 2 * Styles.padding;
+            height: 1px;
+            background: Styles.separator;
+        }
+
+        // The candidate card: one row of numbered chips, drawn only while there is
+        // something to choose.
+        if (root.candidates.length > 0) : Rectangle {
+            x: Styles.padding;
+            y: Styles.input-row-height + 6px;
+            width: parent.width - 2 * Styles.padding;
+            height: Styles.candidate-row-height - 12px;
+            border-radius: 6px;
+            background: Styles.candidate-background;
+
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 8px;
+                spacing: Styles.candidate-gap;
+
+                for word[idx] in root.candidates : Rectangle {
+                    background: transparent;
+                    border-radius: 4px;
+
+                    HorizontalLayout {
+                        padding-left: 6px;
+                        padding-right: 6px;
+                        spacing: 4px;
+
+                        Text {
+                            text: "\{idx + 1}";
+                            color: Styles.accent;
+                            font-size: Styles.candidate-font-size;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: word;
+                            color: Styles.foreground;
+                            font-size: Styles.candidate-font-size;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    // Declared last so it sits on top of the texts and receives the clicks.
+                    chip := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { root.picked(word); }
+                    }
+                }
+            }
+        }
+    }
+}

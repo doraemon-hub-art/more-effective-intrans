@@ -7,4 +7,9 @@
  * @copyright Copyright (c) 2026
  */
 
-fn main() {}
+// The Rust counterpart of Qt's moc/uic: cargo runs this before compiling the crate.
+// It parses ui/app_window.slint and writes the generated Rust module into OUT_DIR,
+// which the crate then pulls in with slint::include_modules!().
+fn main() {
+    slint_build::compile("ui/app_window.slint").expect("failed to compile ui/app_window.slint");
+}

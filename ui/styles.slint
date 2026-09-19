@@ -6,3 +6,33 @@
 // *
 // * @copyright Copyright (c) 2026
 // */
+
+// A global singleton: every component imports it and reads the tokens from here,
+// so colours and sizes are defined exactly once.
+export global Styles {
+    // Panel background and text colours
+    in-out property <color> background: #1e1e2e;
+    in-out property <color> foreground: #cdd6f4;
+
+    // Highlight colour, used for the selected candidate
+    in-out property <color> accent: #89b4fa;
+
+    // Line that separates the input row from the candidate row, and the card behind the
+    // candidates themselves (one step lighter / darker than the panel background)
+    in-out property <color> separator: #313244;
+    in-out property <color> candidate-background: #181825;
+
+    // Geometry
+    in-out property <length> radius: 8px;
+    in-out property <length> font-size: 16px;
+    in-out property <length> padding: 10px;
+
+    // Height of the input row: the panel keeps this height while no candidate row is shown,
+    // and the input field is laid out against it so a growing panel never stretches it.
+    in-out property <length> input-row-height: 64px;
+    // Extra height the panel gains while candidates are offered.
+    in-out property <length> candidate-row-height: 40px;
+    // Typography and spacing of the candidate row.
+    in-out property <length> candidate-font-size: 14px;
+    in-out property <length> candidate-gap: 16px;
+}

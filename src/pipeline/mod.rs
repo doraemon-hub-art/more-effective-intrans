@@ -8,6 +8,7 @@
  */
 
 pub mod cache;
+pub mod dict;
 pub mod engine;
 pub mod providers;
 pub mod translator;
