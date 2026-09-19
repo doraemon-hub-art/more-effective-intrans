@@ -1,0 +1,24 @@
+#/**
+# * @file .gitignore
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Ignore Rust build output and editor or OS noise
+# * @date 2026-09-19
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+# Rust build output
+/target
+
+# Backups written by rustfmt and some editors
+**/*.rs.bk
+
+# Editor and OS noise
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Note: Cargo.lock is intentionally tracked, it pins the exact
+# dependency versions of this application crate.

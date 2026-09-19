@@ -1,0 +1,14 @@
+#/**
+# * @file Cargo.toml
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Crate metadata and dependency manifest
+# * @date 2026-09-19
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+[package]
+name = "more-effective-intrans"
+version = "0.1.0"
+edition = "2024"
+authors = ["doraemon-hub-art <1660219734@qq.com>"]
