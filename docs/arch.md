@@ -1,19 +1,17 @@
 # 技术选型
 
-### 技术选型清单
-
 | 功能领域 | 选定技术 / Crate | 版本 | 核心作用与理由 |
 | :--- | :--- | :--- | :--- |
-| **GUI 框架** | **Slint** | `1.5` | 原生 Rust 编写，非 Webview 方案，编译为本地机器码，内存占用仅约 15MB，支持 Linux 无边框透明窗口。 |
-| **异步运行时** | **Tokio** | `1.36` | 工业级异步 I/O 引擎，提供非阻塞线程池与跨线程通信 Channel（`mpsc` / `oneshot`）。 |
-| **网络请求** | **Reqwest** | `0.11` | 异步 HTTP 客户端，选用 `rustls-tls` 特性（纯 Rust 实现），杜绝 Linux 下 OpenSSL 动态链接库版本冲突。 |
-| **全局快捷键** | **global-hotkey** | `0.5` | 跨平台全局键盘监听，底层封装 Linux X11/XCB 与 Wayland 协议事件。 |
-| **系统托盘** | **tray-icon** | `0.14` | Linux 状态栏图标常驻与右键菜单，原生 DBus / StatusNotifierItem 实现。 |
-| **文本注入引擎** | **Kitty IPC** + **Enigo** | `std` / `0.2` | Kitty 终端优先走原生 Unix Socket（`kitty @ send-text`），其他桌面应用降级走 `enigo` 模拟按键。 |
-| **配置与序列化** | **Serde** + **Toml** | `1.0` / `0.8` | 编译期强类型反序列化，将 `config.toml` 直接映射为 Rust 结构体。 |
+| **GUI 框架** | **Slint** | `1.18` | 原生 Rust 编写，非 Webview 方案，编译为本地机器码，支持 Linux 无边框透明窗口。 |
+| **异步运行时** | **Tokio** | `1.53` | 工业级异步 I/O 引擎，提供非阻塞线程池与跨线程通信 Channel（`mpsc` / `oneshot`）。 |
+| **网络请求** | **Reqwest** | `0.13` | 异步 HTTP 客户端，选用 `rustls-tls` 特性（纯 Rust 实现），杜绝 Linux 下 OpenSSL 动态链接库版本冲突。 |
+| **全局快捷键** | **global-hotkey** | `0.8` | 跨平台全局键盘监听；Linux 下仅支持 X11（内部依赖 x11rb），Wayland 会话下不可用。 |
+| **系统托盘** | **tray-icon** | `0.25` | Linux 状态栏图标常驻与右键菜单；默认后端为 GTK3 AppIndicator，纯 D-Bus 的 StatusNotifierItem 后端（`ksni`）须显式启用。 |
+| **文本注入引擎** | **Enigo** | `0.6` | 统一注入抽象（`TextInjector` Trait），实现为通用虚拟按键模拟，不针对具体应用做适配。 |
+| **配置与序列化** | **Serde** + **Toml** | `1.0` / `1.1` | 运行期反序列化、编译期即确定强类型结构，将 `config.toml` 直接映射为 Rust 结构体。 |
 | **数据解析** | **serde_json** | `1.0` | 极速解析 API 返回的 JSON 候选词数组。 |
-| **本地缓存** | **lru** | `0.12` | 内存 O(1) 访问的 LRU 缓存，避免重复拼音多次发起网络请求。 |
-| **错误系统** | **thiserror** | `1.0` | 派生宏生成强类型枚举错误，替代复杂的异常树。 |
+| **本地缓存** | **lru** | `0.18` | 内存 O(1) 访问的 LRU 缓存，避免重复拼音多次发起网络请求。 |
+| **错误系统** | **thiserror** | `2.0` | 派生宏生成强类型枚举错误，替代复杂的异常树。 |
 | **日志与追踪** | **tracing** | `0.1` | 结构化非阻塞日志系统，便于开发调试与运行时排错。 |
 
 
@@ -22,33 +20,38 @@
 # 项目结构
 
 ```bash
-pypin/
 ├── Cargo.toml                  # 依赖与编译元数据
 ├── build.rs                    # Slint 预编译脚本 (编译期将 .slint 转换为 Rust 代码)
-├── config.toml                 # 运行期默认配置文件
+├── config.example.toml         # 配置模板 (入库)；运行期配置放 XDG 配置目录，密钥走环境变量
 │
-├── ui/                         # [Layer 1: 视觉展现层] (纯 DSL 声明式界面)
+├── assets/                     # 静态资源 (托盘图标、字体等)
+│
+├── ui/                         # [Layer 1: 视觉展现层] 纯 DSL 声明式界面
 │   ├── app_window.slint        # 主悬浮窗、输入框、候选词列表布局与交互定义
 │   └── styles.slint            # 调色板、圆角、字体尺寸等设计系统变量
 │
+├── tests/                      # 集成测试 (经 lib.rs 引用各层)
+│
 └── src/                        # [Rust 核心源码]
-    ├── main.rs                 # 应用程序入口：初始化 Tokio、加载配置、拼装四大层
-    ├── config.rs               # [Layer 2] 对应 config.toml 的数据结构定义
-    ├── error.rs                # 全局统一 Error 枚举 (使用 thiserror)
+    ├── lib.rs                  # 库入口：对外暴露模块并装配各层
+    ├── main.rs                 # 仅负责启动进程 (加载配置、初始化 Tokio、跑 lib)
+    ├── error.rs                # 全局统一 Error 枚举 (跨层共享，不归属某一层)
     │
-    ├── ingress/                # [Layer 1: 接入层适配]
+    ├── ingress/                # [Layer 1: 接入层适配] 与 ui/ 同属第 1 层
     │   ├── mod.rs
     │   ├── hotkey.rs           # 全局快捷键监听事件源 (GlobalHotkey 包装)
     │   ├── tray.rs             # 托盘图标生命周期管理与右键菜单事件
-    │   └── ui_bridge.rs        # Slint 句柄与线程事件调度 (Weak<AppWindow> 通信包装)
+    │   └── ui_bridge.rs        # 唯一允许读写 Slint 属性的地方 (Weak<AppWindow> 通信包装)
     │
     ├── coordinator/            # [Layer 2: 核心控制层]
     │   ├── mod.rs
     │   ├── coordinator.rs      # 核心协调器：汇聚各层事件，驱动状态迁移
-    │   └── state.rs            # 状态机定义 (Hidden / Resolving / Presenting 等)
+    │   ├── state.rs            # 状态机定义 (Hidden / Resolving / Presenting 等)，只存数据不碰 UI
+    │   └── config.rs           # 配置文件的强类型结构定义，向下层以参数传递
     │
     ├── pipeline/               # [Layer 3: 翻译业务管线层]
-    │   ├── mod.rs              # 统一 Trait: `Translator` 接口定义
+    │   ├── mod.rs              # 仅做子模块声明与转发
+    │   ├── translator.rs       # 统一 Trait: `Translator` 接口定义
     │   ├── engine.rs           # Prompt 组装引擎 (组装 Pinyin -> Candidates 规范)
     │   ├── cache.rs            # 本地 LRU Cache 包装 (线程安全包装)
     │   └── providers/          # 翻译服务提供商实现
@@ -58,9 +61,42 @@ pypin/
     │
     └── platform/               # [Layer 4: 操作系统驱动与抽象层]
         ├── mod.rs
-        ├── focus.rs            # 窗口焦点监控器与控制 (X11 / Wayland)
-        └── injector/           # 文本注入抽象与多驱动实现
-            ├── mod.rs          # `TextInjector` Trait
-            ├── kitty_ipc.rs    # Kitty Unix Socket 注入器 (零延迟、原生)
-            └── generic_sim.rs  # Enigo 虚拟按键模拟注入器 (通用桌面降级)
+        ├── focus.rs            # 窗口焦点监控器与控制 (X11)
+        └── injector.rs         # `TextInjector` Trait 与默认实现 (通用虚拟按键模拟，Enigo)
 ```
+
+---
+
+# 补充
+
+## 分层分目录 vs 按功能分目录
+
+两种切法切的方向不同：
+
+- **按层分**是横切：按代码在系统里扮演的角色划分（界面 / 事件接入 / 流程调度 / 业务管线 / 系统调用），同一种角色横跨所有功能；
+- **按功能分**是竖切：按用户可见的能力划分（热键唤起、拼音转英文、剪贴板翻译），一个能力从头到尾自足。
+
+同一条链路在两种切法下落点不同。以"拼音转英文"为例：按层分时它散落在 ui/、ingress/、coordinator/、pipeline/、platform/ 五处；按功能分时它整条集中在一个目录内。
+
+**按层分的好处**
+
+- 依赖方向写在目录上，谁可以调谁一眼可见；
+- 同类实现聚在一处，替换后端（翻译源、注入方式）只动一层的一个目录；
+- 缓存、配置、日志、错误等横切内容有唯一落点，不必各写一份；
+- 层边界即测试接缝：可替身、可并行开发。
+
+**按功能分的好处**
+
+- 一个能力闭环在一个目录，增删改都在原地，上手与删除成本低；
+- 功能之间不耦合时，可各自独立演进、独立开关。
+
+**两者的代价**
+
+- 按层分：追一条链路要跳多个目录，横穿各层的改动面偏大，层内容易过早抽象；
+- 按功能分：依赖边界全靠自觉，共性实现容易重复，跨功能的统一改动要全仓库翻。
+
+**本项目的取舍**
+
+顶层按层分（主流程只有一条，需要替换的点都是"同类多实现"），层内按功能分（pipeline/providers/、ingress/ 下的 hotkey.rs 与 tray.rs）。顶层决定了依赖方向，内层两种混用即可。
+
+---

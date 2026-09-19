@@ -12,7 +12,7 @@ skinparam ranksep 110
 
 ' ======================== 外部实体 ========================
 actor "开发者 (User)" as User
-node "Linux 宿主环境\n(Kitty / X11 / Wayland)" as HostOS
+node "Linux 宿主环境\n(X11 / Wayland)" as HostOS
 cloud "远程翻译服务\n(DeepSeek / Cloud API)" as RemoteAPI
 
 ' ======================== 系统架构分层 ========================
@@ -42,7 +42,7 @@ package "软件系统架构" {
     ' Layer 4
     package "第 4 层：操作系统抽象与驱动层 (OS Abstraction & Driver Layer)" as L4 {
         [窗口焦点控制器\n(Focus Manager)] as C_Focus
-        [文本上屏引擎\n(Text Injector / Kitty IPC)] as C_Injector
+        [文本上屏引擎\n(Text Injector)] as C_Injector
         [异步网络传输驱动\n(HTTP Transport Driver)] as C_Net
     }
 }
@@ -73,6 +73,6 @@ C_Coord -down-> C_Injector : 提交选中的目标文本 (Payload)
 
 ' Layer 4 -> 外部输出
 C_Focus -down-> HostOS : 激活上一个活动窗口
-C_Injector -down-> HostOS : 字符注入 (Kitty Socket / 虚拟按键)
+C_Injector -down-> HostOS : 字符注入 (虚拟按键模拟)
 
 @enduml
