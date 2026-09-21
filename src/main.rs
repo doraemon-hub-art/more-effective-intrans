@@ -9,7 +9,7 @@
 
 use std::sync::Arc;
 
-use more_effective_intrans::ingress::{hotkey, ui_bridge};
+use more_effective_intrans::ingress::{hotkey, tray, ui_bridge};
 use more_effective_intrans::pipeline::dict;
 use more_effective_intrans::pipeline::providers::traditional::BaiduTranslator;
 use more_effective_intrans::pipeline::translator::Translator;
@@ -47,8 +47,8 @@ fn main() -> Result<(), slint::PlatformError> {
 
     let dictionary = dict::Dict::load();
 
-    // Build the window described in ui/app_window.slint, then hand control to the Slint
-    // event loop. run() blocks here and returns once the window is closed.
+    // Build the window described in ui/app_window.slint. It is not shown yet: from here on
+    // the tray icon is what puts it on screen, once it is asked for.
     let ui = AppWindow::new()?;
     info!(target: LOG_ID, "Window created.");
 
@@ -91,8 +91,16 @@ fn main() -> Result<(), slint::PlatformError> {
         }
     });
 
+    // Same reason as the hotkey manager above: dropping the handle takes the icon away and
+    // with it the only thing keeping the event loop alive, since the panel stays hidden.
+    let _tray = tray::start(&ui);
+    if _tray.is_none() {
+        warn!(target: LOG_ID, "Starting with the panel visible instead of resident.");
+        return ui.run();
+    }
+
     info!(target: LOG_ID, "Entering the event loop.");
-    let result = ui.run();
+    let result = slint::run_event_loop();
     info!(target: LOG_ID, "Event loop finished, shutting down.");
 
     result

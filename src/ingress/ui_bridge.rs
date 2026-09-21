@@ -7,7 +7,7 @@
  * @copyright Copyright (c) 2026
  */
 
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 use crate::AppWindow;
 
@@ -23,6 +23,20 @@ pub fn on_submit(ui: &AppWindow, handler: impl Fn(String) + 'static) {
 /// Registers the handler that runs when the user picks a candidate, by digit key or click.
 pub fn on_pick(ui: &AppWindow, handler: impl Fn(String) + 'static) {
     ui.on_picked(move |word: SharedString| handler(word.to_string()));
+}
+
+/// Shows the panel if it is hidden and hides it if it is shown.
+///
+/// Reports whether the panel ended up visible, so the caller can log the outcome: with the
+/// panel gone, the tray icon is all that is left keeping the process alive.
+pub fn toggle_visible(ui: &AppWindow) -> Result<bool, slint::PlatformError> {
+    if ui.window().is_visible() {
+        ui.hide()?;
+        Ok(false)
+    } else {
+        ui.show()?;
+        Ok(true)
+    }
 }
 
 /// Replaces the candidate row with `words`; passing an empty slice hides the row again

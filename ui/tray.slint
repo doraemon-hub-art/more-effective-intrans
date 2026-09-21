@@ -1,0 +1,38 @@
+//**
+// * @file tray.slint
+// * @author doraemon-hub-art (1660219734@qq.com)
+// * @brief System tray entry: the icon that keeps the process resident, and its menu
+// * @date 2026-09-21
+// *
+// * @copyright Copyright (c) 2026
+// */
+
+// A tray-rooted component has no window of its own: the icon is the whole of its UI and
+// the menu is the only way to reach it. While the icon is visible the event loop stays
+// alive, which is what lets the panel be hidden without ending the process.
+export component TrayIcon inherits SystemTrayIcon {
+    icon: @image-url("../assets/tray.png");
+    tooltip: "more-effective-intrans";
+    title: "more-effective-intrans";
+
+    // The menu reports what was picked; what each entry means is decided in Rust.
+    callback toggle-window();
+    callback quit-app();
+
+    // Exactly one Menu child is required, and it must not sit inside an if or a for.
+    // GNOME draws no icon at all for an indicator without a menu, so in practice this
+    // is not optional either.
+    Menu {
+        MenuItem {
+            title: "显示 / 隐藏";
+            activated => { root.toggle-window(); }
+        }
+
+        MenuSeparator { }
+
+        MenuItem {
+            title: "退出";
+            activated => { root.quit-app(); }
+        }
+    }
+}

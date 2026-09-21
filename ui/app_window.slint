@@ -9,6 +9,11 @@
 
 import { Styles } from "styles.slint";
 
+// The tray component lives in its own file. This file is the entry point handed to
+// slint-build, so re-exporting it here is what makes the compiler emit its Rust type
+// next to AppWindow.
+export { TrayIcon } from "tray.slint";
+
 // A frameless, always-on-top panel. It grows downwards by the candidate row while there is
 // something to choose, so the input field itself never moves or changes size.
 export component AppWindow inherits Window {
