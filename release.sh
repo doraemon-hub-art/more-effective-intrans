@@ -15,8 +15,9 @@
 #   --dry-run        print the plan and change nothing
 #   --yes            do not ask before pushing and publishing
 #   --no-push        stop after the tag; print the commands to push and publish by hand
-#   --no-bump        leave the version, the commit and the tag to `cargo release`, which has
-#                    already done them: this only builds the package, pushes and publishes it
+#   --no-bump        release the version the manifest already carries: nothing is bumped and
+#                    nothing is committed. The tag is used if it is there and created if it is
+#                    not, which is what the very first release needs
 #   --notes-file F   use a file as the release notes (default: the commits since the last tag)
 #   --root DIR       release the checkout in DIR (default: the directory holding this script)
 #
@@ -95,13 +96,16 @@ case "$LEVEL" in
 esac
 
 if [ "$NO_BUMP" -eq 1 ]; then
-    # The version is whatever the manifest says: `cargo release` has already written it, committed
-    # it and tagged it, so that tag has to be there and the two have to agree.
+    # The version is whatever the manifest says. Its tag is used when it is there — cargo release
+    # having written both — and created here when it is not, which is the first release of all.
     [ "$next" = "$current" ] || { echo "--no-bump takes no level or version" >&2; exit 2; }
     tag="v$next"
-    git rev-parse -q --verify "refs/tags/$tag" >/dev/null \
-        || { echo "$tag is not there: run `cargo release` first, without --no-bump" >&2; exit 1; }
-    echo "    version $current (from the manifest), tag $tag (already there)"
+    if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+        echo "    version $current (from the manifest), tag $tag (already there)"
+    else
+        echo "    version $current (from the manifest), tag $tag (to be created on HEAD)"
+        create_tag=1
+    fi
 else
     # A version that does not go up would make a tag that clashes or an upload that overwrites.
     highest="$(printf '%s\n%s\n' "$current" "$next" | sort -V | tail -1)"
@@ -173,6 +177,9 @@ if [ "$NO_BUMP" -eq 0 ]; then
     step "committing and tagging"
     run git add "$MANIFEST"
     run git commit -m "chore(release): $tag"
+    run git tag -a "$tag" -m "$tag"
+elif [ "${create_tag:-0}" -eq 1 ]; then
+    step "tagging the commit that is already there"
     run git tag -a "$tag" -m "$tag"
 fi
 
