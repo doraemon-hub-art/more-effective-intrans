@@ -144,7 +144,7 @@
 
 ## 打包与安装布局
 
-deb 包由 `cargo deb` 产出（cargo-deb 读 `Cargo.toml` 里的 `[package.metadata.deb]`），文件名 `more-effective-intrans_<版本>-1_amd64.deb`。装进去的路径：
+deb 包由 `cargo deb` 产出（cargo-deb 读 `Cargo.toml` 里的 `[package.metadata.deb]`），文件名 `more-effective-intrans_<版本>_amd64.deb`。装进去的路径：
 
 | 路径 | 内容 |
 | :--- | :--- |

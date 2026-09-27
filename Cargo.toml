@@ -23,6 +23,8 @@ maintainer = "doraemon-hub-art <1660219734@qq.com>"
 copyright = "2026, doraemon-hub-art <1660219734@qq.com>"
 section = "utils"
 priority = "optional"
+# No Debian revision: the package is named after the crate version alone, more-effective-intrans_0.1.0_amd64.deb
+revision = ""
 # $auto lets cargo-deb work the runtime dependencies out of the binary itself. On this machine
 # dpkg-shlibdeps cannot map the merged /lib paths back to packages, so the three libraries the
 # binary really links (see ldd) are named as well; fontconfig brings freetype and the rest along.
@@ -40,6 +42,15 @@ assets = [
     ["assets/pinyin-simp/LICENSE", "usr/share/doc/more-effective-intrans/LICENSE.pinyin-simp", "644"],
     ["assets/pinyin-simp/AUTHORS", "usr/share/doc/more-effective-intrans/AUTHORS.pinyin-simp", "644"],
 ]
+
+# Releasing: `cargo release <level>` reads this table. Two defaults have to be turned off here:
+# this is an application, not a library, so nothing goes to crates.io; and pushing is left to the
+# person releasing, whose connection to GitHub is the slow part of the process.
+[package.metadata.release]
+publish = false
+push = false
+pre-release-commit-message = "chore(release): v{{version}}"
+tag-message = "chore(release): v{{version}}"
 
 [dependencies]
 # GUI: Slint compiles .slint into Rust at build time; default backend is winit + femtovg
