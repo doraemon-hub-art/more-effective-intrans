@@ -18,7 +18,8 @@
 #   --no-bump        release the version the manifest already carries: nothing is bumped and
 #                    nothing is committed. The tag is used if it is there and created if it is
 #                    not, which is what the very first release needs
-#   --notes-file F   use a file as the release notes (default: the commits since the last tag)
+#   --notes-file F   use a file as the release notes (default: GitHub generates them, listing
+#                    the commits since the previous release)
 #   --root DIR       release the checkout in DIR (default: the directory holding this script)
 #
 # Without --no-bump it does, in order: check the version → rewrite Cargo.toml → cargo test →
@@ -197,23 +198,22 @@ step "pushing"
 # -u origin HEAD rather than a bare `git push`: a branch without an upstream makes the bare form
 # fail with nothing pushed at all.
 run git push -u origin HEAD
-run git push origin "$tag"
+# A release that stopped halfway — the tag went up, the publishing did not — is picked up here
+# again: the tag is only pushed when the remote does not have this very tag object already.
+remote_tag="$(git ls-remote --tags origin "refs/tags/$tag" 2>/dev/null | awk '{print $1}')"
+if [ "$remote_tag" = "$(git rev-parse "$tag" 2>/dev/null)" ]; then
+    echo "    $tag is already on the remote, pointing at the same commit"
+else
+    run git push origin "$tag"
+fi
 
 step "publishing the release"
 if [ -n "$NOTES_FILE" ]; then
     run gh release create "$tag" --title "$tag" --notes-file "$NOTES_FILE" "$deb"
 else
-    notes="$(git log --oneline "$(git describe --tags --abbrev=0 "$tag^" 2>/dev/null || echo "$tag^")..HEAD~0" 2>/dev/null || true)"
-    [ -n "$notes" ] || notes="Release $tag"
-    if [ "$DRY_RUN" -eq 1 ]; then
-        printf '    gh release create %s --title %s --notes <the commits since the last tag> %s\n' \
-            "$tag" "$tag" "$deb"
-    else
-        tmp="$(mktemp)"
-        printf '%s\n' "$notes" > "$tmp"
-        gh release create "$tag" --title "$tag" --notes-file "$tmp" "$deb"
-        rm -f "$tmp"
-    fi
+    # --generate-notes lets GitHub write the body itself: it lists every commit since the previous
+    # release and closes with a compare link, which is exactly "what changed since last time".
+    run gh release create "$tag" --title "$tag" --generate-notes "$deb"
 fi
 
 step "done"
