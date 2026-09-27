@@ -22,7 +22,7 @@
 ```bash
 ├── Cargo.toml                  # 依赖与编译元数据
 ├── build.rs                    # Slint 预编译脚本 (编译期将 .slint 转换为 Rust 代码)
-├── config.example.toml         # 配置模板 (入库)；运行期配置放 XDG 配置目录，密钥走环境变量
+├── config.default.toml         # 默认配置 (入库)；运行期配置
 │
 ├── assets/                     # 静态资源 (托盘图标、内置词库与第三方许可等)
 │
@@ -139,5 +139,24 @@
 **留待后续**
 
 - 候选条数可调；完整候选列表与翻页；记住用户选择；查不到时走模型兜底；拆音节拼字。
+
+---
+
+## 打包与安装布局
+
+deb 包由 `cargo deb` 产出（cargo-deb 读 `Cargo.toml` 里的 `[package.metadata.deb]`），文件名 `more-effective-intrans_<版本>-1_amd64.deb`。装进去的路径：
+
+| 路径 | 内容 |
+| :--- | :--- |
+| `/usr/bin/more-effective-intrans` | 程序本体 |
+| `/etc/more-effective-intrans/config.toml` | 配置模板（源文件 `config.default.toml`），dpkg 视为配置文件，升级不覆盖用户改动 |
+| `/usr/share/applications/more-effective-intrans.desktop` | 桌面条目（源文件 `assets/more-effective-intrans.desktop`） |
+| `/usr/share/icons/hicolor/32x32/apps/more-effective-intrans.png` | 图标（源文件 `assets/tray.png`，托盘图标兼作启动器图标） |
+| `/usr/share/doc/more-effective-intrans/copyright` | 版权声明，cargo-deb 依据 `LICENSE` 与词库许可生成 |
+| `/usr/share/doc/more-effective-intrans/LICENSE.pinyin-simp`、`AUTHORS.pinyin-simp` | 内置词库的第三方许可与作者名单 |
+
+运行时依赖由包自身声明：`libc6`、`libgcc-s1`、`libfontconfig1`（`$auto` 在当前 dpkg 环境下算不出依赖，故一并手写）。
+
+词库与托盘图标都是编译期进二进制的，包里没有任何运行期数据文件。
 
 ---

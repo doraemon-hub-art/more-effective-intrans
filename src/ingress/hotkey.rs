@@ -25,7 +25,11 @@ const TRIGGER_KEY: Code = Code::Semicolon;
 /// The returned manager has to stay alive for as long as the hotkey is wanted: dropping
 /// it unregisters the hotkey. `None` means this platform cannot provide global hotkeys
 /// (no X11 display, for instance) and the caller simply continues without them.
-pub fn start() -> Option<GlobalHotKeyManager> {
+///
+/// `on_trigger` runs on the listener thread, which is not the one running the Slint event
+/// loop; a Slint component may only be touched from its own thread, so the callback has to
+/// hand its work over there itself (see `ui_bridge::toggle_visible_in_event_loop`).
+pub fn start(on_trigger: impl Fn() + Send + 'static) -> Option<GlobalHotKeyManager> {
     let manager = match GlobalHotKeyManager::new() {
         Ok(manager) => manager,
         Err(err) => {
@@ -43,11 +47,12 @@ pub fn start() -> Option<GlobalHotKeyManager> {
 
     // global-hotkey pumps X11 events on its own thread; this thread only waits on the
     // channel it fills, which keeps the Slint event loop free.
-    std::thread::spawn(|| {
+    std::thread::spawn(move || {
         let receiver = GlobalHotKeyEvent::receiver();
         while let Ok(event) = receiver.recv() {
             if event.state == HotKeyState::Pressed {
                 info!(target: LOG_ID, "Hotkey pressed (id {}).", event.id);
+                on_trigger();
             }
         }
     });

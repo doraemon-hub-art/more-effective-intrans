@@ -13,6 +13,33 @@ version = "0.1.0"
 edition = "2024"
 authors = ["doraemon-hub-art <1660219734@qq.com>"]
 description = "Pinyin to English input companion for X11 desktops"
+# Slint, the GUI toolkit this is built on, is triple licensed; GPL-3.0-only is the free of charge
+# one, so it is what the whole program is under. See LICENSE.
+license = "GPL-3.0-only"
+
+# Packaging: `cargo deb` reads this table and writes the Debian package from it.
+[package.metadata.deb]
+maintainer = "doraemon-hub-art <1660219734@qq.com>"
+copyright = "2026, doraemon-hub-art <1660219734@qq.com>"
+section = "utils"
+priority = "optional"
+# $auto lets cargo-deb work the runtime dependencies out of the binary itself. On this machine
+# dpkg-shlibdeps cannot map the merged /lib paths back to packages, so the three libraries the
+# binary really links (see ldd) are named as well; fontconfig brings freetype and the rest along.
+depends = "$auto, libc6, libgcc-s1, libfontconfig1"
+license-file = ["LICENSE", "0"]
+extended-description = "A pinyin to English input companion for X11 desktops. A global hotkey shows a panel where a word is typed in pinyin, a bundled rime dictionary offers the Chinese candidates, and the picked one is translated by the Baidu translation API. The English text is then typed into the window that had the keyboard focus when the hotkey was pressed."
+assets = [
+    ["target/release/more-effective-intrans", "usr/bin/", "755"],
+    ["assets/more-effective-intrans.desktop", "usr/share/applications/", "644"],
+    # The tray icon doubles as the launcher icon, at the size it actually is.
+    ["assets/tray.png", "usr/share/icons/hicolor/32x32/apps/more-effective-intrans.png", "644"],
+    # Files under /etc are configuration files to dpkg without being declared as such.
+    ["config.default.toml", "etc/more-effective-intrans/config.toml", "644"],
+    # The bundled dictionary is Apache-2.0: its license has to travel with the package.
+    ["assets/pinyin-simp/LICENSE", "usr/share/doc/more-effective-intrans/LICENSE.pinyin-simp", "644"],
+    ["assets/pinyin-simp/AUTHORS", "usr/share/doc/more-effective-intrans/AUTHORS.pinyin-simp", "644"],
+]
 
 [dependencies]
 # GUI: Slint compiles .slint into Rust at build time; default backend is winit + femtovg

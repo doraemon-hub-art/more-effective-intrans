@@ -38,3 +38,19 @@
 
 
 ---
+
+# 文件配置及任务栏右键
+
+> 状态栏右键
+
+- 翻译源选择；
+  - 百度；
+
+```bash
+ - `BAIDU_TRANSLATE_APPID`                           │
+│- `BAIDU_TRANSLATE_SECRET`
+│- `BAIDU_TRANSLATE_ENDPOINT`
+```
+
+- 应用设置；
+  - xx

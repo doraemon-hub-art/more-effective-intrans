@@ -55,10 +55,31 @@ pub struct BaiduTranslator {
 
 impl BaiduTranslator {
     /// Reads both credentials from the environment and keeps the default endpoint.
+    ///
+    /// This is [`Self::from_settings`] with nothing filled in, for a run that has no settings
+    /// to read.
     pub fn from_env() -> Result<Self> {
-        let appid = required_env(APPID_ENV)?;
-        let secret = required_env(SECRET_ENV)?;
-        let endpoint = std::env::var(ENDPOINT_ENV).unwrap_or_else(|_| DEFAULT_ENDPOINT.to_owned());
+        Self::from_settings("", "", "")
+    }
+
+    /// Builds a translator from the settings, and takes whatever they leave empty from the
+    /// environment variable of the same name.
+    ///
+    /// The configuration file is where the credentials belong; the variables stay as the
+    /// fallback, so a session that has them exported keeps working as before.
+    pub fn from_settings(appid: &str, secret: &str, endpoint: &str) -> Result<Self> {
+        let appid = match appid {
+            "" => required_env(APPID_ENV)?,
+            value => value.to_owned(),
+        };
+        let secret = match secret {
+            "" => required_env(SECRET_ENV)?,
+            value => value.to_owned(),
+        };
+        let endpoint = match endpoint {
+            "" => std::env::var(ENDPOINT_ENV).unwrap_or_else(|_| DEFAULT_ENDPOINT.to_owned()),
+            value => value.to_owned(),
+        };
 
         Self::with_endpoint(appid, secret, endpoint)
     }
@@ -243,6 +264,19 @@ mod tests {
             parse_response(r#"{"error_code":"52000","error_msg":"Success"}"#),
             Err(Error::UnexpectedResponse(_))
         ));
+    }
+
+    /// The endpoint written in the settings is the one that is used, without asking the
+    /// environment: the file has the last word over whether the provider is reachable at all.
+    #[test]
+    fn settings_that_are_all_there_do_not_fall_back_to_the_environment() {
+        let translator =
+            BaiduTranslator::from_settings("an appid", "a secret", "https://example.invalid/")
+                .expect("settings that hold everything must build");
+
+        assert_eq!(translator.appid, "an appid");
+        assert_eq!(translator.secret, "a secret");
+        assert_eq!(translator.endpoint, "https://example.invalid/");
     }
 
     #[test]

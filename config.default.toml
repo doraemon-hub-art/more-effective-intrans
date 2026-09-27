@@ -1,0 +1,25 @@
+#/**
+# * @file config.default.toml
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Default configuration, used unless the user config overrides it
+# * @date 2026-09-19
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+# ===== Translation source =====
+# The source in use is picked from the tray menu, and the program then reads the
+# section of that source. One source is available for now: baidu.
+[translation]
+selected = "baidu"
+
+# Baidu's general text translation API.
+[translation.baidu]
+# The credentials used for this source.
+appid = ""     # BAIDU_TRANSLATE_APPID
+secret = ""    # BAIDU_TRANSLATE_SECRET
+endpoint = ""  # BAIDU_TRANSLATE_ENDPOINT; empty means the provider's own public endpoint
+
+# ===== Application settings =====
+# Nothing to configure here yet.
+[app]

@@ -1,0 +1,19 @@
+#/**
+# * @file more-effective-intrans.desktop
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Desktop entry, installed by the package into /usr/share/applications
+# * @date 2026-09-27
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+[Desktop Entry]
+Type=Application
+Name=more-effective-intrans
+Comment=Pinyin to English input companion
+Exec=more-effective-intrans
+Icon=more-effective-intrans
+Terminal=false
+Categories=Utility;
+Keywords=pinyin;translate;chinese;english;
+StartupNotify=false

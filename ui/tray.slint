@@ -15,8 +15,15 @@ export component TrayIcon inherits SystemTrayIcon {
     tooltip: "more-effective-intrans";
     title: "more-effective-intrans";
 
+    // The translation source the menu marks as the picked one. The mark has to sit in the label:
+    // on Linux the tray backend hands the platform a label and an enabled flag and nothing else,
+    // so a `checkable` entry would reach the menu without its checkmark.
+    in-out property <string> source: "baidu";
+
     // The menu reports what was picked; what each entry means is decided in Rust.
     callback toggle-window();
+    callback select-source(string);
+    callback open-config();
     callback quit-app();
 
     // Exactly one Menu child is required, and it must not sit inside an if or a for.
@@ -26,6 +33,26 @@ export component TrayIcon inherits SystemTrayIcon {
         MenuItem {
             title: "显示 / 隐藏";
             activated => { root.toggle-window(); }
+        }
+
+        MenuSeparator { }
+
+        // The translation source lives one level down: hovering over this entry is what
+        // opens the list of sources, one MenuItem per source.
+        Menu {
+            title: "翻译源";
+
+            MenuItem {
+                title: root.source == "baidu" ? "✓ 百度" : "百度";
+                activated => { root.select-source("baidu"); }
+            }
+        }
+
+        MenuSeparator { }
+
+        MenuItem {
+            title: "打开配置文件";
+            activated => { root.open-config(); }
         }
 
         MenuSeparator { }
