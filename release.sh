@@ -22,9 +22,12 @@
 #                    the commits since the previous release)
 #   --root DIR       release the checkout in DIR (default: the directory holding this script)
 #
-# Without --no-bump it does, in order: check the version → rewrite Cargo.toml → cargo test →
-# cargo deb → git commit → git tag → git push → gh release create with the .deb attached.
-# With --no-bump the first three of those are left out, and the tag has to be there already.
+# Without --no-bump it does, in order: check the version → rewrite Cargo.toml → cargo test and
+# cargo deb in the build container → git commit → git tag → git push → gh release create with the
+# .deb attached. With --no-bump the version is left as it stands, and the tag has to be there.
+#
+# The package is built in the container from Dockerfile.release, on Jammy, so that the binary asks
+# for no glibc newer than 2.35 — see that file for why.
 #
 # It stops instead of guessing: a dirty tree, an existing tag, a version that does not go up, or
 # a `gh` that is missing or not logged in are all reasons to refuse before anything is touched.
@@ -130,6 +133,8 @@ if [ "$PUSH" -eq 1 ]; then
     gh auth status >/dev/null 2>&1 || { echo "gh is not logged in (gh auth login)" >&2; exit 1; }
 fi
 
+command -v docker >/dev/null || { echo "docker is not installed (sudo apt install docker.io)" >&2; exit 1; }
+
 # ---------------------------------------------------------------- bump and build
 
 if [ "$NO_BUMP" -eq 0 ]; then
@@ -157,19 +162,80 @@ else
     run grep -n '^version' "$MANIFEST"
 fi
 
-step "running the tests"
-run cargo test --quiet
+# ---------------------------------------------------------------- the build container
 
-step "building the package"
-run cargo deb
+# Every symbol the binary imports is bound to the glibc version of the machine that links it, so a
+# package built with the toolchain of this machine asks for GLIBC_2.38 and GLIBC_2.39 and will not
+# start on Jammy. It is built on Jammy — glibc 2.35, the oldest distribution it is meant to run on
+# — inside the container from Dockerfile.release. Glibc only goes forwards, so that one package
+# covers Jammy and everything newer; there is no package per distribution.
+IMAGE="more-effective-intrans/release:22.04"
+DEB_TARGET="target/jammy"
+
+step "preparing the build container"
+docker image inspect "$IMAGE" >/dev/null 2>&1 \
+    || run docker build -f "$ROOT/Dockerfile.release" -t "$IMAGE" "$ROOT"
+
+step "running the tests and building the package"
+if [ "$DRY_RUN" -eq 0 ]; then
+    # The directory is made here rather than by the container: the build runs as root, and a target
+    # directory created by root in the checkout could not be cleaned up by hand afterwards.
+    mkdir -p "$ROOT/$DEB_TARGET"
+    docker run --rm -i -v "$ROOT":/work -w /work \
+        -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" "$IMAGE" bash -eu <<'SH'
+export CARGO_TARGET_DIR=/work/target/jammy
+# The build runs as root, the files it writes have to belong to the person who invoked it.
+trap 'chown -R "$HOST_UID:$HOST_GID" "$CARGO_TARGET_DIR" 2>/dev/null || true' EXIT
+
+# The rpath goes to the linker instead of to patchelf afterwards: cargo deb builds the binary once
+# more, and a relink would quietly drop a patch applied before it. $ORIGIN is where the binary
+# itself sits, usr/bin, and the libraries are installed one level up from there.
+export RUSTFLAGS='-C link-arg=-Wl,-rpath,$ORIGIN/../lib/more-effective-intrans/lib'
+
+cargo test --quiet
+cargo build --release --quiet
+
+# The runtime libraries travel inside the package, so that nothing but libc6 has to come from the
+# machine: fontconfig with what it needs, and the unwinder Rust links against. They are taken out
+# of this container — glibc 2.35 — for the same reason the binary is built in it.
+libs="$CARGO_TARGET_DIR/libs"
+rm -rf "$libs"
+mkdir -p "$libs"
+pending=(libfontconfig.so.1 libgcc_s.so.1)
+while [ "${#pending[@]}" -gt 0 ]; do
+    name="${pending[0]}"
+    pending=("${pending[@]:1}")
+    [ -e "$libs/$name" ] && continue
+    cp -L "/usr/lib/x86_64-linux-gnu/$name" "$libs/"
+    for dep in $(ldd "$libs/$name" | awk '$2 == "=>" {print $1}'); do
+        case "$dep" in
+            libc.so.6 | libm.so.6 | ld-linux-x86-64.so.2) ;;
+            *) pending+=("$dep") ;;
+        esac
+    done
+done
+
+# Each copied library is pointed at its own neighbours, so that the ones shipped together are the
+# ones that get used rather than whatever version the machine happens to carry.
+for lib in "$libs"/*.so*; do
+    patchelf --set-rpath '$ORIGIN' "$lib"
+done
+
+cargo deb
+SH
+else
+    echo "    docker run --rm -i -v $ROOT:/work -w /work $IMAGE bash -eu <<'SH'"
+    echo "    ... cargo test, cargo build --release, stage the libraries, patchelf, cargo deb"
+fi
+
 # The package name follows the crate version: with and without a Debian revision are both matched,
 # so turning the revision on or off in Cargo.toml does not need this line to change.
-deb="$(ls -1 "$ROOT"/target/debian/more-effective-intrans_"$next"[-_]*.deb 2>/dev/null | tail -1 || true)"
+deb="$(ls -1 "$ROOT/$DEB_TARGET"/debian/more-effective-intrans_"$next"[-_]*.deb 2>/dev/null | tail -1 || true)"
 if [ "$DRY_RUN" -eq 0 ]; then
     [ -n "$deb" ] || { echo "cargo deb produced no package for $next" >&2; exit 1; }
     echo "    package: $deb"
 else
-    echo "    package: target/debian/more-effective-intrans_$next*.deb"
+    echo "    package: $DEB_TARGET/debian/more-effective-intrans_$next*.deb"
 fi
 
 # ---------------------------------------------------------------- commit, tag, publish
@@ -188,7 +254,7 @@ if [ "$PUSH" -eq 0 ]; then
     step "stopping before the push, as asked"
     cat <<EOF
     git push -u origin HEAD && git push origin $tag
-    gh release create $tag --title "$tag" ${NOTES_FILE:+--notes-file "$NOTES_FILE"} target/debian/more-effective-intrans_$next*.deb
+    gh release create $tag --title "$tag" ${NOTES_FILE:+--notes-file "$NOTES_FILE"} $DEB_TARGET/debian/more-effective-intrans_$next*.deb
 EOF
     exit 0
 fi
@@ -217,4 +283,4 @@ else
 fi
 
 step "done"
-echo "    $tag is out, with $(basename "${deb:-target/debian/more-effective-intrans_$next*.deb}") attached"
+echo "    $tag is out, with $(basename "${deb:-$DEB_TARGET/debian/more-effective-intrans_$next*.deb}") attached"

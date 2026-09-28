@@ -25,14 +25,17 @@ section = "utils"
 priority = "optional"
 # No Debian revision: the package is named after the crate version alone, more-effective-intrans_0.1.0_amd64.deb
 revision = ""
-# $auto lets cargo-deb work the runtime dependencies out of the binary itself. On this machine
-# dpkg-shlibdeps cannot map the merged /lib paths back to packages, so the three libraries the
-# binary really links (see ldd) are named as well; fontconfig brings freetype and the rest along.
-depends = "$auto, libc6, libgcc-s1, libfontconfig1"
+# Nothing but libc is asked of the machine: fontconfig, whatever it needs and the unwinder are
+# shipped inside the package (release.sh stages them, see Dockerfile.release). 2.35 is the glibc of
+# the Jammy the package is built on — one release older could not start it.
+depends = "libc6 (>= 2.35)"
 license-file = ["LICENSE", "0"]
 extended-description = "A pinyin to English input companion for X11 desktops. A global hotkey shows a panel where a word is typed in pinyin, a bundled rime dictionary offers the Chinese candidates, and the picked one is translated by the Baidu translation API. The English text is then typed into the window that had the keyboard focus when the hotkey was pressed."
 assets = [
     ["target/release/more-effective-intrans", "usr/bin/", "755"],
+    # The runtime libraries release.sh stages out of the build container: the binary finds them
+    # beside itself instead of on the machine.
+    ["target/jammy/libs/*.so*", "usr/lib/more-effective-intrans/lib/", "644"],
     ["assets/more-effective-intrans.desktop", "usr/share/applications/", "644"],
     # The tray icon doubles as the launcher icon, at the size it actually is.
     ["assets/tray.png", "usr/share/icons/hicolor/32x32/apps/more-effective-intrans.png", "644"],

@@ -1,0 +1,51 @@
+#/**
+# * @file Dockerfile.release
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Build the package on Jammy, so the binary asks for no glibc newer than 2.35
+# * @date 2026-09-28
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+# The distribution the package is built on decides the glibc the binary asks for: every imported
+# symbol is bound to the version the build machine's libc carries. Built on 24.04 the binary wants
+# GLIBC_2.38 (aws-lc-sys, whose C is compiled here) and GLIBC_2.39 (the pidfd entries prebuilt std
+# refers to), and neither is there on Jammy. Jammy — glibc 2.35 — is the oldest distribution this
+# is meant to run on, so it is what it is built on. Glibc only goes forwards: one package built
+# here runs on Jammy and on everything newer.
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# cmake, perl and gcc build the C in aws-lc-sys; libfontconfig1-dev is what yeslogic-fontconfig-sys
+# finds through pkg-config; patchelf writes the rpath that points the binary at the libraries
+# shipped in the package beside it. libfontconfig1 itself is the copy those libraries are taken
+# from, so it has to be installed here rather than only in the development package.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        build-essential cmake ca-certificates curl perl pkg-config \
+        libfontconfig1 libfontconfig1-dev patchelf \
+ && rm -rf /var/lib/apt/lists/*
+
+# The toolchain the manifest is written against, baked into the image so a release never waits on
+# a download of its own.
+ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+ && sh /tmp/rustup-init.sh -y --no-modify-path --profile minimal --default-toolchain 1.97.1 \
+ && rm /tmp/rustup-init.sh \
+ && cargo install cargo-deb --version 3.8.0 --locked
+
+# The crate sources are not baked in — a release bind-mounts the checkout — but the dependency
+# graph is, so that a release does not sit waiting on crates.io. Whatever the lockfile gains later
+# is fetched on the next run. The manifest is put in a directory of its own and removed again:
+# cargo walks up from the build directory looking for a workspace, and a manifest on that walk with
+# no sources left beside it is a hard error.
+WORKDIR /tmp/deps
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src \
+ && echo 'fn main() {}' > src/main.rs \
+ && cargo fetch \
+ && cd / && rm -rf /tmp/deps
+
+WORKDIR /work

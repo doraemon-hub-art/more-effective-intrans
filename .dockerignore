@@ -1,0 +1,13 @@
+#/**
+# * @file .dockerignore
+# * @author doraemon-hub-art (1660219734@qq.com)
+# * @brief Keep the build context small: the container gets the sources through a bind mount
+# * @date 2026-09-28
+# *
+# * @copyright Copyright (c) 2026
+# */
+
+# Build output: the container is handed the checkout at run time, not through the context, and a
+# target directory of a few gigabytes has no business being uploaded to the daemon.
+target/
+.git/
