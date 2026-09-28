@@ -9,7 +9,7 @@
 
 [package]
 name = "more-effective-intrans"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["doraemon-hub-art <1660219734@qq.com>"]
 description = "Pinyin to English input companion for X11 desktops"
